@@ -4,25 +4,7 @@ Enhanced Web Proxy Server for Testing Filtering Systems
 This script creates a stylish HTTP proxy that can be used to test web filtering systems.
 """
 
-from flask import Flask, request, Response, stream_with_context, render_template_string
-import requests
-import logging
-import argparse
-import urllib.parse
-import time
-import os
-
-app = Flask(__name__)
-
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
-)
-logger = logging.getLogger('web_proxy')
-
-# The beautiful HTML template with CSS and JavaScript
+# HTML Template is exported for serverless functions
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -621,7 +603,7 @@ HTML_TEMPLATE = """
             document.getElementById('loading').classList.add('show');
             
             // Make sure the URL has a scheme
-            if (!url.startsWith(('http://', 'https://'))) {
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 url = 'https://' + url;
             }
             
@@ -661,91 +643,111 @@ HTML_TEMPLATE = """
 </html>
 """
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'])
-def proxy(path):
-    """
-    Main proxy function that handles all incoming requests
-    """
-    # Get the URL to forward to
-    target_url = request.args.get('url')
-    
-    if not target_url:
-        # If no URL provided, show the beautiful interface
-        return render_template_string(HTML_TEMPLATE, current_year=time.strftime("%Y"))
-    
-    # Make sure the URL has a scheme
-    if not target_url.startswith(('http://', 'https://')):
-        target_url = 'https://' + target_url
-    
-    # Get the full URL including the path
-    if path:
-        parsed_url = urllib.parse.urlparse(target_url)
-        target_url = f"{parsed_url.scheme}://{parsed_url.netloc}/{path}"
-    
-    # Log the request
-    logger.info(f"Proxying request to: {target_url}")
-    
-    # Copy the request headers
-    headers = {key: value for key, value in request.headers.items() if key.lower() not in ['host', 'content-length']}
-    
-    try:
-        # Forward the request to the target server
-        resp = requests.request(
-            method=request.method,
-            url=target_url,
-            headers=headers,
-            data=request.get_data(),
-            cookies=request.cookies,
-            params={k: v for k, v in request.args.items() if k != 'url'},
-            allow_redirects=False,
-            stream=True,
-            verify=True  # You might want to set this to False for testing purposes
-        )
-        
-        # Create a response object
-        response_headers = {key: value for key, value in resp.headers.items() if key.lower() not in ['transfer-encoding']}
-        
-        # Function to rewrite links in HTML content
-        def generate():
-            for chunk in resp.iter_content(chunk_size=4096):
-                # For HTML content, you might want to rewrite links
-                # This is a simplified example and could be expanded
-                yield chunk
-        
-        # Return the response
-        return Response(
-            stream_with_context(generate()),
-            status=resp.status_code,
-            headers=response_headers,
-            content_type=resp.headers.get('content-type', 'text/html')
-        )
-    
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error proxying request: {e}")
-        
-        # Return error page with the beautiful interface
-        error_html = render_template_string(
-            HTML_TEMPLATE.replace(
-                '<p class="tagline">Secure, anonymous web browsing with advanced filtering bypass</p>',
-                f'<p class="tagline" style="color: #e74c3c;">Error: {e}</p>'
-            ),
-            current_year=time.strftime("%Y")
-        )
-        return error_html, 500
-
-def main():
-    """
-    Main function to parse arguments and start the server
-    """
-    parser = argparse.ArgumentParser(description='Enhanced Web Proxy Server')
-    parser.add_argument('--host', default='0.0.0.0', help='Host to bind to')
-    parser.add_argument('--port', default=8080, type=int, help='Port to bind to')
-    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-    args = parser.parse_args()
-    
-    logger.info(f"Starting proxy server on {args.host}:{args.port}")
-    app.run(host=args.host, port=args.port, debug=args.debug)
-
+# This is kept for traditional server deployment
 if __name__ == '__main__':
-    main()
+    from flask import Flask, request, Response, stream_with_context, render_template_string
+    import requests
+    import logging
+    import argparse
+    import urllib.parse
+    import time
+    import os
+
+    app = Flask(__name__)
+
+    # Set up logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler()]
+    )
+    logger = logging.getLogger('web_proxy')
+
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'])
+    def proxy(path):
+        """
+        Main proxy function that handles all incoming requests
+        """
+        # Get the URL to forward to
+        target_url = request.args.get('url')
+        
+        if not target_url:
+            # If no URL provided, show the beautiful interface
+            return render_template_string(HTML_TEMPLATE, current_year=time.strftime("%Y"))
+        
+        # Make sure the URL has a scheme
+        if not target_url.startswith(('http://', 'https://')):
+            target_url = 'https://' + target_url
+        
+        # Get the full URL including the path
+        if path:
+            parsed_url = urllib.parse.urlparse(target_url)
+            target_url = f"{parsed_url.scheme}://{parsed_url.netloc}/{path}"
+        
+        # Log the request
+        logger.info(f"Proxying request to: {target_url}")
+        
+        # Copy the request headers
+        headers = {key: value for key, value in request.headers.items() if key.lower() not in ['host', 'content-length']}
+        
+        try:
+            # Forward the request to the target server
+            resp = requests.request(
+                method=request.method,
+                url=target_url,
+                headers=headers,
+                data=request.get_data(),
+                cookies=request.cookies,
+                params={k: v for k, v in request.args.items() if k != 'url'},
+                allow_redirects=False,
+                stream=True,
+                verify=True  # You might want to set this to False for testing purposes
+            )
+            
+            # Create a response object
+            response_headers = {key: value for key, value in resp.headers.items() if key.lower() not in ['transfer-encoding']}
+            
+            # Function to rewrite links in HTML content
+            def generate():
+                for chunk in resp.iter_content(chunk_size=4096):
+                    # For HTML content, you might want to rewrite links
+                    # This is a simplified example and could be expanded
+                    yield chunk
+            
+            # Return the response
+            return Response(
+                stream_with_context(generate()),
+                status=resp.status_code,
+                headers=response_headers,
+                content_type=resp.headers.get('content-type', 'text/html')
+            )
+        
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error proxying request: {e}")
+            
+            # Return error page with the beautiful interface
+            error_html = render_template_string(
+                HTML_TEMPLATE.replace(
+                    '<p class="tagline">Neural network infiltration system :: Bypass-level ALPHA</p>',
+                    f'<p class="tagline" style="color: #e74c3c;">Error: {e}</p>'
+                ),
+                current_year=time.strftime("%Y")
+            )
+            return error_html, 500
+
+    def main():
+        """
+        Main function to parse arguments and start the server
+        """
+        parser = argparse.ArgumentParser(description='Enhanced Web Proxy Server')
+        parser.add_argument('--host', default='0.0.0.0', help='Host to bind to')
+        parser.add_argument('--port', default=8080, type=int, help='Port to bind to')
+        parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+        args = parser.parse_args()
+        
+        logger.info(f"Starting proxy server on {args.host}:{args.port}")
+        app.run(host=args.host, port=args.port, debug=args.debug)
+
+    if __name__ == '__main__':
+        main()
